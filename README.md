@@ -1,4 +1,4 @@
-# Ads Site
+# Ads Site [Try Now](https://leadads.pages.dev/)
 
 A web platform where users can purchase advertising squares to display their ads.
 
