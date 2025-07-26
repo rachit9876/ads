@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Grid‑Divided Image (Aspect‑Ratio Fit)</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #2a2a2a;
+      --border-color: #404040;
+      --text-primary: #ffffff;
+      --text-secondary: #cccccc;
+      --accent-blue: #0a84ff;
+      --accent-blue-hover: #3094ff;
+      --success-green: #30d158;
+      --error-red: #ff453a;
+      --selection-overlay: rgba(10, 132, 255, 0.2);
+      --shadow-main: 0 10px 40px rgba(0, 0, 0, 0.6);
+      --transition-fast: 0.15s ease;
+      --transition-medium: 0.3s ease;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1400px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 2rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    canvas {
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow-main);
+      transition: border-color var(--transition-fast);
+      background: var(--bg-secondary);
+    }
+
+    canvas:hover {
+      border-color: var(--accent-blue);
+    }
+
+    canvas.selecting {
+      cursor: crosshair;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:hover {
+      background: var(--border-color);
+      border-color: var(--accent-blue);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+    }
+
+    button.primary:hover {
+      background: var(--accent-blue-hover);
+      border-color: var(--accent-blue-hover);
+    }
+
+    button.danger {
+      background: var(--error-red);
+      border-color: var(--error-red);
+    }
+
+    button.danger:hover {
+      background: #ff6961;
+      border-color: #ff6961;
+    }
+
+    button:disabled {
+      background: var(--bg-tertiary);
+      color: #666;
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success-green);
+    }
+
+    .help-text {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      max-width: 600px;
+    }
+
+    .help-text strong {
+      color: var(--text-primary);
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+      }
+      
+      .controls {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      
+      button {
+        width: 100%;
+        max-width: 200px;
+      }
+    }
+
+    /* Loading animation */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border-color);
+      border-radius: 50%;
+      border-top-color: var(--accent-blue);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Smooth transitions */
+    .fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Grid Image Editor</h1>
+      <p class="subtitle">Upload and arrange images in a 20×10 grid</p>
+    </div>
+    
+    <div class="controls">
+      <button id="clearAll" class="danger">
+        <span id="clearText">Clear All</span>
+      </button>
+      <button id="undoBtn" disabled>
+        Undo Last
+      </button>
+      <button id="exportBtn">
+        Export Grid
+      </button>
+    </div>
+    
+    <input type="file" id="upload" accept="image/*" style="display:none">
+    <canvas id="gridCanvas"></canvas>
+    
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-indicator"></div>
+        <span>Grid: <span id="gridInfo">20×10 cells</span></span>
+      </div>
+      <div class="status-item">
+        <span>Images: <span id="imageCount">0</span></span>
+      </div>
+      <div class="status-item">
+        <span>Used: <span id="usedCells">0</span>/<span id="totalCells">200</span> cells</span>
+      </div>
+    </div>
+    
+    <div class="help-text">
+      <strong>How to use:</strong> Click and drag to select an area on the grid, then choose an image to upload. 
+      The image will be stretched to fill your selection completely.
+    </div>
+  </div>
+
+  <script>
+    // DOM elements
+    const uploadInput = document.getElementById('upload');
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+    const clearAllBtn = document.getElementById('clearAll');
+    const undoBtn = document.getElementById('undoBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    
+    // Status elements
+    const imageCountEl = document.getElementById('imageCount');
+    const usedCellsEl = document.getElementById('usedCells');
+    const totalCellsEl = document.getElementById('totalCells');
+
+    // Grid configuration
+    const GRID_COLS = 20;
+    const GRID_ROWS = 10;
+    const GAP = 2; // Slightly larger gap for better visibility
+    const TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+    
+    // Calculate optimal cell size
+    const maxHeight = Math.min(window.innerHeight - 300, 600);
+    const maxWidth = Math.min(window.innerWidth - 100, 1200);
+    const cellFromHeight = Math.floor((maxHeight - (GRID_ROWS - 1) * GAP) / GRID_ROWS);
+    const cellFromWidth = Math.floor((maxWidth - (GRID_COLS - 1) * GAP) / GRID_COLS);
+    const CELL = Math.min(cellFromHeight, cellFromWidth, 50); // Max 50px per cell
+    
+    const TOTAL_WIDTH = GRID_COLS * CELL + (GRID_COLS - 1) * GAP;
+    const TOTAL_HEIGHT = GRID_ROWS * CELL + (GRID_ROWS - 1) * GAP;
+
+    // High DPI support
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = TOTAL_WIDTH * dpr;
+    canvas.height = TOTAL_HEIGHT * dpr;
+    canvas.style.width = TOTAL_WIDTH + 'px';
+    canvas.style.height = TOTAL_HEIGHT + 'px';
+    ctx.scale(dpr, dpr);
+
+    // Application state
+    let images = [];
+    let occupiedCells = new Set();
+    let isSelecting = true;
+    let selectionStart = null;
+    let selectionEnd = null;
+    let isDragging = false;
+    let history = []; // For undo functionality
+    let isLoading = false;
+
+    // Initialize
+    canvas.classList.add('selecting');
+    totalCellsEl.textContent = TOTAL_CELLS;
+    updateStatus();
+    redrawCanvas();
+
+    // Event listeners
+    clearAllBtn.addEventListener('click', handleClearAll);
+    undoBtn.addEventListener('click', handleUndo);
+    exportBtn.addEventListener('click', handleExport);
+
+    // Enhanced drag selection
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+
+    // Touch support for mobile
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+    uploadInput.addEventListener('change', handleFileUpload);
+
+    function handleMouseDown(e) {
+      if (!isSelecting || isLoading) return;
+      e.preventDefault();
+      selectionStart = getCellFromMouse(e);
+      selectionEnd = selectionStart;
+      isDragging = true;
+      redrawCanvas();
+    }
+
+    function handleMouseMove(e) {
+      if (!isSelecting || !isDragging || isLoading) return;
+      selectionEnd = getCellFromMouse(e);
+      redrawCanvas();
+    }
+
+    function handleMouseUp(e) {
+      if (!isSelecting || !isDragging || isLoading) return;
+      isDragging = false;
+      selectionEnd = getCellFromMouse(e);
+      
+      if (selectionStart && selectionEnd) {
+        const width = Math.abs(selectionEnd.col - selectionStart.col) + 1;
+        const height = Math.abs(selectionEnd.row - selectionStart.row) + 1;
+        
+        if (width > 0 && height > 0) {
+          uploadInput.click();
+        }
+      }
+    }
+
+    function handleMouseLeave() {
+      if (isDragging) {
+        isDragging = false;
+        redrawCanvas();
+      }
+    }
+
+    // Touch event handlers
+    function handleTouchStart(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      handleMouseDown(mouseEvent);
+    }
+
+    function handleTouchMove(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      handleMouseMove(mouseEvent);
+    }
+
+    function handleTouchEnd(e) {
+      e.preventDefault();
+      const mouseEvent = new MouseEvent('mouseup', {});
+      handleMouseUp(mouseEvent);
+    }
+
+    function getCellFromMouse(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const col = Math.floor(x / (CELL + GAP));
+      const row = Math.floor(y / (CELL + GAP));
+      return { 
+        row: Math.max(0, Math.min(row, GRID_ROWS - 1)), 
+        col: Math.max(0, Math.min(col, GRID_COLS - 1)) 
+      };
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      if (!selectionStart || !selectionEnd) {
+        showNotification('Please select an area first!', 'error');
+        return;
+      }
+
+      setLoading(true);
+      const img = new Image();
+      
+      img.onload = () => {
+        addImageAtSelection(img);
+        setLoading(false);
+        // Reset file input
+        uploadInput.value = '';
+      };
+      
+      img.onerror = () => {
+        showNotification('Failed to load image!', 'error');
+        setLoading(false);
+        uploadInput.value = '';
+      };
+      
+      img.src = URL.createObjectURL(file);
+    }
+
+    function addImageAtSelection(img) {
+      const startRow = Math.min(selectionStart.row, selectionEnd.row);
+      const startCol = Math.min(selectionStart.col, selectionEnd.col);
+      const width = Math.abs(selectionEnd.col - selectionStart.col) + 1;
+      const height = Math.abs(selectionEnd.row - selectionStart.row) + 1;
+      
+      // Check if area is available
+      if (!isAreaAvailable(startRow, startCol, width, height)) {
+        showNotification('Selected area is not available!', 'error');
+        return;
+      }
+      
+      // Save current state for undo
+      saveState();
+      
+      // Mark cells as occupied
+      for (let r = startRow; r < startRow + height; r++) {
+        for (let c = startCol; c < startCol + width; c++) {
+          occupiedCells.add(`${r},${c}`);
+        }
+      }
+      
+      images.push({ img, row: startRow, col: startCol, width, height });
+      
+      // Reset selection
+      selectionStart = null;
+      selectionEnd = null;
+      
+      updateStatus();
+      redrawCanvas();
+      showNotification('Image added successfully!', 'success');
+    }
+
+    function isAreaAvailable(startRow, startCol, width, height) {
+      for (let r = startRow; r < startRow + height; r++) {
+        for (let c = startCol; c < startCol + width; c++) {
+          if (occupiedCells.has(`${r},${c}`)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function handleClearAll() {
+      if (images.length === 0) return;
+      
+      if (confirm('Are you sure you want to clear all images?')) {
+        saveState();
+        images = [];
+        occupiedCells.clear();
+        updateStatus();
+        redrawCanvas();
+        showNotification('All images cleared!', 'success');
+      }
+    }
+
+    function handleUndo() {
+      if (history.length === 0) return;
+      
+      const previousState = history.pop();
+      images = previousState.images;
+      occupiedCells = new Set(previousState.occupiedCells);
+      
+      updateStatus();
+      redrawCanvas();
+      showNotification('Undone!', 'success');
+    }
+
+    function handleExport() {
+      // Create a new canvas for export
+      const exportCanvas = document.createElement('canvas');
+      const exportCtx = exportCanvas.getContext('2d');
+      
+      exportCanvas.width = TOTAL_WIDTH;
+      exportCanvas.height = TOTAL_HEIGHT;
+      
+      // Draw the grid without selection overlay
+      drawGrid(exportCtx, false);
+      
+      // Create download link
+      exportCanvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `grid-image-${new Date().toISOString().slice(0, 10)}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showNotification('Grid exported!', 'success');
+      });
+    }
+
+    function saveState() {
+      history.push({
+        images: [...images],
+        occupiedCells: new Set(occupiedCells)
+      });
+      
+      // Limit history size
+      if (history.length > 10) {
+        history.shift();
+      }
+      
+      undoBtn.disabled = history.length === 0;
+    }
+
+    function updateStatus() {
+      imageCountEl.textContent = images.length;
+      usedCellsEl.textContent = occupiedCells.size;
+      undoBtn.disabled = history.length === 0;
+    }
+
+    function setLoading(loading) {
+      isLoading = loading;
+      if (loading) {
+        canvas.style.cursor = 'wait';
+      } else {
+        canvas.style.cursor = isSelecting ? 'crosshair' : 'default';
+      }
+    }
+
+    function showNotification(message, type = 'info') {
+      // Simple notification system - could be enhanced with a proper toast component
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
+    function redrawCanvas() {
+      drawGrid(ctx, true);
+    }
+
+    function drawGrid(context, showSelection = true) {
+      // Clear canvas with dark background
+      context.fillStyle = 'var(--bg-primary)';
+      context.fillRect(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
+
+      for (let row = 0; row < GRID_ROWS; row++) {
+        for (let col = 0; col < GRID_COLS; col++) {
+          const dx = col * (CELL + GAP);
+          const dy = row * (CELL + GAP);
+
+          // Find image for this cell
+          const imageData = images.find(img => 
+            row >= img.row && row < img.row + img.height &&
+            col >= img.col && col < img.col + img.width
+          );
+
+          if (imageData) {
+            // Draw image stretched to fit the selected area
+            context.save();
+            context.beginPath();
+            context.rect(dx, dy, CELL, CELL);
+            context.clip();
+            
+            const totalImageWidth = imageData.width * CELL + (imageData.width - 1) * GAP;
+            const totalImageHeight = imageData.height * CELL + (imageData.height - 1) * GAP;
+            const imageX = imageData.col * (CELL + GAP);
+            const imageY = imageData.row * (CELL + GAP);
+            
+            // Stretch image to fill the entire selected area
+            context.drawImage(
+              imageData.img,
+              imageX,
+              imageY,
+              totalImageWidth,
+              totalImageHeight
+            );
+            context.restore();
+          } else {
+            // Draw empty cell
+            context.fillStyle = '#2a2a2a';
+            context.fillRect(dx, dy, CELL, CELL);
+            
+            // Add subtle border
+            context.strokeStyle = '#404040';
+            context.lineWidth = 0.5;
+            context.strokeRect(dx, dy, CELL, CELL);
+          }
+          
+          // Draw selection overlay
+          if (showSelection && isSelecting && selectionStart && selectionEnd) {
+            const startRow = Math.min(selectionStart.row, selectionEnd.row);
+            const endRow = Math.max(selectionStart.row, selectionEnd.row);
+            const startCol = Math.min(selectionStart.col, selectionEnd.col);
+            const endCol = Math.max(selectionStart.col, selectionEnd.col);
+            
+            if (row >= startRow && row <= endRow && col >= startCol && col <= endCol) {
+              context.fillStyle = 'rgba(10, 132, 255, 0.3)';
+              context.fillRect(dx, dy, CELL, CELL);
+              
+              // Add selection border
+              context.strokeStyle = '#0a84ff';
+              context.lineWidth = 2;
+              context.strokeRect(dx, dy, CELL, CELL);
+            }
+          }
+        }
+      }
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      // Recalculate canvas size if needed
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width !== TOTAL_WIDTH) {
+        // Could implement responsive resizing here
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case 'z':
+            e.preventDefault();
+            handleUndo();
+            break;
+          case 's':
+            e.preventDefault();
+            handleExport();
+            break;
+        }
+      }
+      
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (images.length > 0) {
+          handleClearAll();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
